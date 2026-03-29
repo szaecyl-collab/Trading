@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tracking Trading PRO</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: Arial; text-align: center; }
+.container { max-width: 600px; margin: auto; }
+.box { border: 1px solid #ccc; padding: 15px; margin: 10px; }
+.positive { background: #c8f7c5; }
+.negative { background: #f7c5c5; }
+button { padding: 10px; margin: 10px; }
+</style>
+</head>
+<body>
+
+<h2>Seguimiento Trading (Escalado)</h2>
+
+<div class="container" id="app"></div>
+
+<button onclick="addEntry()">➕ Añadir viernes</button>
+
+<canvas id="chart" height="100"></canvas>
+
+<script>
+let data = JSON.parse(localStorage.getItem("balance")) || [];
+
+function render() {
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+
+    data.forEach((item, index) => {
+        let div = document.createElement("div");
+        div.className = "box";
+
+        let prev = index > 0 ? data[index - 1].balance : item.balance;
+        let diff = item.balance - prev;
+        let percent = ((diff / prev) * 100).toFixed(2);
+        let percentCapital = ((diff / item.capital) * 100).toFixed(2);
+
+        div.innerHTML = `
+            <b>${item.date}</b><br>
+            Balance: ${item.balance}€<br>
+            Capital: ${item.capital}€<br>
+            Resultado: ${diff.toFixed(2)}€<br>
+            % Semana: ${percent}%<br>
+            % sobre capital: ${percentCapital}%
+        `;
+
+        if (diff > 0) div.classList.add("positive");
+        if (diff < 0) div.classList.add("negative");
+
+        app.appendChild(div);
+    });
+
+    drawChart();
+}
+
+function addEntry() {
+    let balance = prompt("Nivel de cuenta (€):");
+    if (!balance) return;
+
+    let capital = prompt("Capital del tramo (€):");
+    if (!capital) return;
+
+    let today = new Date();
+    let date = today.toLocaleDateString();
+
+    data.push({
+        date: date,
+        balance: parseFloat(balance),
+        capital: parseFloat(capital)
+    });
+
+    localStorage.setItem("balance", JSON.stringify(data));
+    render();
+}
+
+function drawChart() {
+    let ctx = document.getElementById("chart").getContext("2d");
+
+    let labels = data.map(d => d.date);
+    let balances = data.map(d => d.balance);
+
+    if (window.myChart) window.myChart.destroy();
+
+    window.myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Balance',
+                data: balances,
+                fill: false
+            }]
+        }
+    });
+}
+
+render();
+</script>
+
+</body>
+</html>
