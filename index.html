@@ -6,41 +6,47 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: Arial; background:#f5f5f5; }
+body { font-family: Arial; background:#f5f5f5; margin:0; }
 
-.topbar { margin:10px; }
+/* TOPBAR */
+.topbar {
+  padding:10px;
+  background:#222;
+  color:white;
+}
+
+button { margin:3px; }
 
 /* TABS */
-#tabs { display:flex; gap:5px; margin:10px; }
+#tabs {
+  display:flex;
+  gap:5px;
+  padding:10px;
+  background:#ddd;
+}
 
 .tab {
-  padding:5px 10px;
-  background:#ddd;
+  padding:6px 12px;
+  background:#bbb;
   cursor:pointer;
-  border:1px solid #999;
 }
 
-.active-tab {
-  background:#fff;
+.active {
+  background:white;
   font-weight:bold;
-}
-
-.tab-close {
-  margin-left:5px;
-  color:red;
-  cursor:pointer;
 }
 
 /* CALENDARIO */
 .year {
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3,1fr);
   gap:10px;
+  padding:10px;
 }
 
 .month {
-  border:2px solid #000;
   background:white;
+  border:1px solid #000;
   font-size:11px;
 }
 
@@ -52,46 +58,39 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .grid {
   display:grid;
-  grid-template-columns: repeat(8,1fr);
+  grid-template-columns: repeat(7,1fr);
 }
 
 .cell {
-  border:1px solid #999;
+  border:1px solid #ccc;
   height:24px;
   text-align:center;
   line-height:24px;
+  cursor:pointer;
 }
 
-.header { background:#eee; font-weight:bold; }
+.pos { background:#c8f7c5; }
+.neg { background:#f7c5c5; }
 
-.friday { background:#cfe2ff; cursor:pointer; }
-
-.capcol { font-size:10px; }
-
-/* 🔥 FIX CLAVE: altura real para la gráfica */
+/* GRAFICA */
 .chart-box {
-  margin-top:30px;
-  background:#2c2c2c;
-  padding:15px;
-  height:350px;
+  height:300px;
+  padding:10px;
+  background:#222;
 }
-
-button { margin:5px; }
 </style>
 </head>
 
 <body>
 
 <div class="topbar">
-<button onclick="settings()">⚙️ Config</button>
-<button onclick="exportData()">📤 Exportar</button>
-<button onclick="importData()">📥 Importar</button>
-<button onclick="window.print()">🖨️ Imprimir</button>
+<button onclick="newPortfolio()">➕ Nueva cartera</button>
+<button onclick="config()">⚙️ Config</button>
+<button onclick="exportGlobal()">📤 Exportar TODO</button>
+<button onclick="importGlobal()">📥 Importar TODO</button>
 </div>
 
 <div id="tabs"></div>
-
-<h2 id="title"></h2>
 
 <div class="year" id="calendar"></div>
 
@@ -100,155 +99,104 @@ button { margin:5px; }
 </div>
 
 <script>
-let state = JSON.parse(localStorage.getItem("vertexApp")) || {
+
+/* ====== ESTADO ====== */
+let state = JSON.parse(localStorage.getItem("tradeApp")) || {
   active:"Principal",
   portfolios:{
     "Principal":{
       year:2026,
       start:1000,
-      target:5000,
       data:{}
     }
   }
 };
 
-function current(){ return state.portfolios[state.active]; }
-function save(){ localStorage.setItem("vertexApp", JSON.stringify(state)); }
+function save(){
+  localStorage.setItem("tradeApp", JSON.stringify(state));
+}
 
-/* TABS */
+function current(){
+  return state.portfolios[state.active];
+}
+
+/* ====== TABS ====== */
 function buildTabs(){
   let tabs=document.getElementById("tabs");
   tabs.innerHTML="";
 
   Object.keys(state.portfolios).forEach(name=>{
-    let tab=document.createElement("div");
-    tab.className="tab";
-    if(name===state.active) tab.classList.add("active-tab");
+    let t=document.createElement("div");
+    t.className="tab";
+    if(name===state.active) t.classList.add("active");
+    t.innerText=name;
 
-    tab.innerHTML=name;
-
-    tab.onclick=()=>{
+    t.onclick=()=>{
       state.active=name;
       save();
       render();
     };
 
-    let close=document.createElement("span");
-    close.innerText=" ×";
-    close.className="tab-close";
-
-    close.onclick=(e)=>{
-      e.stopPropagation();
-      if(confirm("Eliminar cartera?")){
-        delete state.portfolios[name];
-        state.active=Object.keys(state.portfolios)[0];
-        save();
-        render();
-      }
-    };
-
-    tab.appendChild(close);
-    tabs.appendChild(tab);
+    tabs.appendChild(t);
   });
 
   let add=document.createElement("div");
   add.className="tab";
   add.innerText="+";
-  add.onclick=()=> newPortfolio();
-
+  add.onclick=newPortfolio;
   tabs.appendChild(add);
 }
 
-/* CALENDARIO */
-const months=["enero","febrero","marzo","abril","mayo","junio",
-"julio","agosto","septiembre","octubre","noviembre","diciembre"];
-
-const days=["L","M","X","J","V","S","D","CAP"];
+/* ====== CALENDARIO ====== */
+const months=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 function buildCalendar(){
   let cal=document.getElementById("calendar");
   cal.innerHTML="";
 
   let p=current();
-  document.getElementById("title").innerText=state.active+" - "+p.year;
 
-  months.forEach((month,m)=>{
+  months.forEach((m,mi)=>{
 
     let box=document.createElement("div");
     box.className="month";
 
     let title=document.createElement("div");
     title.className="month-title";
-    title.innerText=month+" "+p.year;
+    title.innerText=m+" "+p.year;
     box.appendChild(title);
 
     let grid=document.createElement("div");
     grid.className="grid";
 
-    days.forEach(d=>{
-      let c=document.createElement("div");
-      c.className="cell header";
-      c.innerText=d;
-      grid.appendChild(c);
-    });
+    let days=new Date(p.year,mi+1,0).getDate();
 
-    let first=(new Date(p.year,m,1).getDay()+6)%7;
-    let daysInMonth=new Date(p.year,m+1,0).getDate();
+    for(let d=1;d<=days;d++){
 
-    let arr=[];
-    for(let i=0;i<first;i++) arr.push("");
-    for(let d=1;d<=daysInMonth;d++) arr.push(d);
-    while(arr.length%7!==0) arr.push("");
+      let cell=document.createElement("div");
+      cell.className="cell";
 
-    for(let i=0;i<arr.length;i+=7){
-      let week=arr.slice(i,i+7);
+      let key=`${mi+1}-${d}`;
+      let val=p.data[key];
 
-      week.forEach(d=>{
-        let cell=document.createElement("div");
-        cell.className="cell";
+      cell.innerHTML=d;
 
-        if(d){
-          cell.innerText=d;
-          let date=new Date(p.year,m,d);
-
-          if(date.getDay()===5){
-            cell.classList.add("friday");
-
-            let key=`${m+1}-${d}`;
-
-            if(p.data[key]){
-              cell.innerHTML=d+"<br>"+p.data[key];
-            }
-
-            cell.onclick=()=>{
-              let val=prompt("Capital:",p.data[key]||"");
-              if(val!==null && val!==""){
-                p.data[key]=parseFloat(val);
-                save();
-                render();
-              }
-            };
-          }
-        }
-
-        grid.appendChild(cell);
-      });
-
-      let cap=document.createElement("div");
-      cap.className="cell capcol";
-
-      let friday=week.find(d=>{
-        if(!d) return false;
-        let dt=new Date(p.year,m,d);
-        return dt.getDay()===5;
-      });
-
-      if(friday){
-        let key=`${m+1}-${friday}`;
-        if(p.data[key]) cap.innerText=p.data[key];
+      if(val){
+        cell.innerHTML += "<br>"+val;
+        if(val>0) cell.classList.add("pos");
+        if(val<0) cell.classList.add("neg");
       }
 
-      grid.appendChild(cap);
+      cell.onclick=()=>{
+        let v=prompt("Resultado (€):",val||"");
+        if(v!==null){
+          p.data[key]=parseFloat(v);
+          save();
+          render();
+        }
+      };
+
+      grid.appendChild(cell);
     }
 
     box.appendChild(grid);
@@ -256,94 +204,80 @@ function buildCalendar(){
   });
 }
 
-/* 🔥 GRAFICA FUNCIONANDO */
+/* ====== GRAFICA (equity real) ====== */
 function buildChart(){
 
-  let p = current();
+  let p=current();
 
-  let labels = [];
-  let values = [];
+  let labels=[];
+  let values=[];
 
-  let last = p.start || 0;
+  let equity=p.start;
 
   for(let m=0;m<12;m++){
-    let days = new Date(p.year, m+1, 0).getDate();
+    let days=new Date(p.year,m+1,0).getDate();
 
-    for(let d=1; d<=days; d++){
+    for(let d=1;d<=days;d++){
+      let key=`${m+1}-${d}`;
 
-      let date = new Date(p.year, m, d);
-
-      if(date.getDay() === 5){
-
-        let key = `${m+1}-${d}`;
-
-        if(p.data[key] !== undefined && !isNaN(p.data[key])){
-          last = p.data[key];
-        }
-
+      if(p.data[key]!==undefined){
+        equity += p.data[key];
         labels.push(`${m+1}/${d}`);
-        values.push(last);
+        values.push(equity);
       }
     }
   }
 
-  let ctx = document.getElementById("chart").getContext("2d");
+  let ctx=document.getElementById("chart").getContext("2d");
 
   if(window.chart) window.chart.destroy();
 
-  window.chart = new Chart(ctx,{
-    type:"line",
-    data:{
-      labels: labels,
-      datasets:[
-        {
-          label:"Capital",
-          data: values,
+  setTimeout(()=>{
+
+    window.chart=new Chart(ctx,{
+      type:"line",
+      data:{
+        labels:labels,
+        datasets:[{
+          label:"Equity",
+          data:values,
           borderColor:"#4da3ff",
           tension:0.2,
-          fill:false,
-          pointRadius:4,
-          pointBackgroundColor:"#4da3ff"
-        }
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      animation:false,
-      plugins:{
-        legend:{ labels:{ color:"white" } }
+          pointRadius:3
+        }]
       },
-      scales:{
-        x:{ ticks:{ color:"white" } },
-        y:{
-          min: p.start || 0,
-          max: p.target || 1000,
-          ticks:{
-            color:"white",
-            callback:value => value + " €"
-          }
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{
+          legend:{ labels:{ color:"white" } }
+        },
+        scales:{
+          x:{ ticks:{ color:"white" } },
+          y:{ ticks:{ color:"white" } }
         }
       }
-    }
-  });
+    });
+
+  },50);
 }
 
-/* CONFIG */
-function settings(){
+/* ====== CONFIG ====== */
+function config(){
   let p=current();
-  let year=prompt("Año:",p.year);
-  let start=prompt("Capital inicial:",p.start);
-  let target=prompt("Objetivo:",p.target);
 
-  if(year) p.year=parseInt(year);
-  if(start) p.start=parseFloat(start);
-  if(target) p.target=parseFloat(target);
+  let y=prompt("Año:",p.year);
+  let s=prompt("Capital inicial:",p.start);
+
+  if(y) p.year=parseInt(y);
+  if(s) p.start=parseFloat(s);
 
   save();
   render();
 }
 
+/* ====== CARTERAS ====== */
 function newPortfolio(){
   let name=prompt("Nombre cartera:");
   if(!name) return;
@@ -351,7 +285,6 @@ function newPortfolio(){
   state.portfolios[name]={
     year:2026,
     start:1000,
-    target:5000,
     data:{}
   };
 
@@ -360,32 +293,32 @@ function newPortfolio(){
   render();
 }
 
-/* EXPORT / IMPORT */
-function exportData(){
+/* ====== EXPORT / IMPORT ====== */
+function exportGlobal(){
   let blob=new Blob([JSON.stringify(state)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="trading_data.json";
+  a.download="trading_all.json";
   a.click();
 }
 
-function importData(){
+function importGlobal(){
   let input=document.createElement("input");
   input.type="file";
   input.onchange=e=>{
     let file=e.target.files[0];
-    let reader=new FileReader();
-    reader.onload=()=>{
-      state=JSON.parse(reader.result);
+    let r=new FileReader();
+    r.onload=()=>{
+      state=JSON.parse(r.result);
       save();
       render();
     };
-    reader.readAsText(file);
+    r.readAsText(file);
   };
   input.click();
 }
 
-/* RENDER */
+/* ====== RENDER ====== */
 function render(){
   buildTabs();
   buildCalendar();
@@ -393,6 +326,7 @@ function render(){
 }
 
 render();
+
 </script>
 
 </body>
