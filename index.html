@@ -2,103 +2,102 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Tracking Trading PRO</title>
+<title>Trading Calendar</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: Arial; text-align: center; }
-.container { max-width: 600px; margin: auto; }
-.box { border: 1px solid #ccc; padding: 15px; margin: 10px; }
-.positive { background: #c8f7c5; }
-.negative { background: #f7c5c5; }
-button { padding: 10px; margin: 10px; }
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  max-width: 700px;
+  margin: auto;
+}
+.day {
+  border: 1px solid #ccc;
+  padding: 10px;
+  cursor: pointer;
+}
+.filled { background: #c8e6ff; }
 </style>
 </head>
 <body>
 
-<h2>Seguimiento Trading (Escalado)</h2>
+<h2>Calendario Trading</h2>
 
-<div class="container" id="app"></div>
+<div class="calendar" id="calendar"></div>
 
-<button onclick="addEntry()">➕ Añadir viernes</button>
-
+<h3>Gráfica de Equity</h3>
 <canvas id="chart" height="100"></canvas>
 
 <script>
-let data = JSON.parse(localStorage.getItem("balance")) || [];
+let data = JSON.parse(localStorage.getItem("calendarData")) || {};
 
-function render() {
-    const app = document.getElementById("app");
-    app.innerHTML = "";
+const calendar = document.getElementById("calendar");
 
-    data.forEach((item, index) => {
-        let div = document.createElement("div");
-        div.className = "box";
+// Crear calendario simple (1–31)
+for (let i = 1; i <= 31; i++) {
+    let div = document.createElement("div");
+    div.className = "day";
+    div.innerHTML = "<b>" + i + "</b>";
 
-        let prev = index > 0 ? data[index - 1].balance : item.balance;
-        let diff = item.balance - prev;
-        let percent = ((diff / prev) * 100).toFixed(2);
-        let percentCapital = ((diff / item.capital) * 100).toFixed(2);
+    if (data[i]) {
+        div.innerHTML += "<br>" + data[i] + "€";
+        div.classList.add("filled");
+    }
 
-        div.innerHTML = `
-            <b>${item.date}</b><br>
-            Balance: ${item.balance}€<br>
-            Capital: ${item.capital}€<br>
-            Resultado: ${diff.toFixed(2)}€<br>
-            % Semana: ${percent}%<br>
-            % sobre capital: ${percentCapital}%
-        `;
+    div.onclick = () => {
+        let value = prompt("Nivel de cuenta (€):", data[i] || "");
+        if (value !== null && value !== "") {
+            data[i] = parseFloat(value);
+            localStorage.setItem("calendarData", JSON.stringify(data));
+            location.reload();
+        }
+    };
 
-        if (diff > 0) div.classList.add("positive");
-        if (diff < 0) div.classList.add("negative");
-
-        app.appendChild(div);
-    });
-
-    drawChart();
+    calendar.appendChild(div);
 }
 
-function addEntry() {
-    let balance = prompt("Nivel de cuenta (€):");
-    if (!balance) return;
+// 📈 GRÁFICA CONTINUA (CLAVE)
+function buildChartData() {
+    let labels = [];
+    let values = [];
 
-    let capital = prompt("Capital del tramo (€):");
-    if (!capital) return;
+    let lastValue = null;
 
-    let today = new Date();
-    let date = today.toLocaleDateString();
+    for (let i = 1; i <= 31; i++) {
+        labels.push(i);
 
-    data.push({
-        date: date,
-        balance: parseFloat(balance),
-        capital: parseFloat(capital)
-    });
+        if (data[i]) {
+            lastValue = data[i];
+        }
 
-    localStorage.setItem("balance", JSON.stringify(data));
-    render();
+        values.push(lastValue);
+    }
+
+    return { labels, values };
 }
 
 function drawChart() {
     let ctx = document.getElementById("chart").getContext("2d");
 
-    let labels = data.map(d => d.date);
-    let balances = data.map(d => d.balance);
+    let chartData = buildChartData();
 
-    if (window.myChart) window.myChart.destroy();
-
-    window.myChart = new Chart(ctx, {
+    new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels: chartData.labels,
             datasets: [{
-                label: 'Balance',
-                data: balances,
-                fill: false
+                label: 'Equity',
+                data: chartData.values,
+                fill: false,
+                spanGaps: true
             }]
         }
     });
 }
 
-render();
+drawChart();
 </script>
 
 </body>
