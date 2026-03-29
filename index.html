@@ -10,7 +10,6 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .topbar { margin:10px; }
 
-/* TABS */
 #tabs { display:flex; gap:5px; margin:10px; }
 
 .tab {
@@ -25,13 +24,6 @@ body { font-family: Arial; background:#f5f5f5; }
   font-weight:bold;
 }
 
-.tab-close {
-  margin-left:5px;
-  color:red;
-  cursor:pointer;
-}
-
-/* CALENDARIO */
 .year {
   display:grid;
   grid-template-columns: repeat(3, 1fr);
@@ -66,16 +58,16 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .friday { background:#cfe2ff; cursor:pointer; }
 
-.capcol { font-size:10px; }
-
-/* GRAFICA */
 .chart-box {
   margin-top:30px;
   background:#2c2c2c;
   padding:15px;
 }
 
-button { margin:5px; }
+canvas {
+  width:100% !important;
+  height:300px !important;
+}
 </style>
 </head>
 
@@ -83,8 +75,6 @@ button { margin:5px; }
 
 <div class="topbar">
 <button onclick="settings()">⚙️ Config</button>
-<button onclick="exportData()">📤 Exportar</button>
-<button onclick="importData()">📥 Importar</button>
 <button onclick="window.print()">🖨️ Imprimir</button>
 </div>
 
@@ -95,7 +85,7 @@ button { margin:5px; }
 <div class="year" id="calendar"></div>
 
 <div class="chart-box">
-<canvas id="chart" height="300"></canvas>
+<canvas id="chart"></canvas>
 </div>
 
 <script>
@@ -105,7 +95,7 @@ let state = JSON.parse(localStorage.getItem("vertexApp")) || {
     "Principal":{
       year:2026,
       start:1000,
-      target:5000,
+      target:2000,
       data:{}
     }
   }
@@ -124,7 +114,7 @@ function buildTabs(){
     tab.className="tab";
     if(name===state.active) tab.classList.add("active-tab");
 
-    tab.innerHTML=name;
+    tab.innerText=name;
 
     tab.onclick=()=>{
       state.active=name;
@@ -132,44 +122,20 @@ function buildTabs(){
       render();
     };
 
-    let close=document.createElement("span");
-    close.innerText=" ×";
-    close.className="tab-close";
-
-    close.onclick=(e)=>{
-      e.stopPropagation();
-      if(confirm("Eliminar cartera?")){
-        delete state.portfolios[name];
-        state.active=Object.keys(state.portfolios)[0];
-        save();
-        render();
-      }
-    };
-
-    tab.appendChild(close);
     tabs.appendChild(tab);
   });
-
-  let add=document.createElement("div");
-  add.className="tab";
-  add.innerText="+";
-  add.onclick=()=> newPortfolio();
-
-  tabs.appendChild(add);
 }
 
 /* CALENDARIO */
 const months=["enero","febrero","marzo","abril","mayo","junio",
 "julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
-const days=["L","M","X","J","V","S","D","CAP"];
-
 function buildCalendar(){
   let cal=document.getElementById("calendar");
   cal.innerHTML="";
 
   let p=current();
-  document.getElementById("title").innerText=state.active+" - "+p.year;
+  document.getElementById("title").innerText=p.year;
 
   months.forEach((month,m)=>{
 
@@ -178,18 +144,11 @@ function buildCalendar(){
 
     let title=document.createElement("div");
     title.className="month-title";
-    title.innerText=month+" "+p.year;
+    title.innerText=month;
     box.appendChild(title);
 
     let grid=document.createElement("div");
     grid.className="grid";
-
-    days.forEach(d=>{
-      let c=document.createElement("div");
-      c.className="cell header";
-      c.innerText=d;
-      grid.appendChild(c);
-    });
 
     let first=(new Date(p.year,m,1).getDay()+6)%7;
     let daysInMonth=new Date(p.year,m+1,0).getDate();
@@ -210,7 +169,8 @@ function buildCalendar(){
           cell.innerText=d;
           let date=new Date(p.year,m,d);
 
-          if(date.getDay()===5){
+          if(date.getDay()===5){ // viernes
+
             cell.classList.add("friday");
 
             let key=`${m+1}-${d}`;
@@ -234,12 +194,11 @@ function buildCalendar(){
       });
 
       let cap=document.createElement("div");
-      cap.className="cell capcol";
+      cap.className="cell";
 
       let friday=week.find(d=>{
         if(!d) return false;
-        let dt=new Date(p.year,m,d);
-        return dt.getDay()===5;
+        return new Date(p.year,m,d).getDay()===5;
       });
 
       if(friday){
@@ -255,7 +214,7 @@ function buildCalendar(){
   });
 }
 
-/* 🔥 GRAFICA NUEVA (SOLO VIERNES, ESCALA EXCEL) */
+/* 🔥 GRAFICA CORRECTA */
 function buildChart(){
 
   let p = current();
@@ -263,21 +222,21 @@ function buildChart(){
   let labels = [];
   let values = [];
 
-  let last = p.start || 0;
+  let last = Number(p.start) || 0;
 
   for(let m=0;m<12;m++){
-    let days = new Date(p.year, m+1, 0).getDate();
+    let days=new Date(p.year,m+1,0).getDate();
 
-    for(let d=1; d<=days; d++){
+    for(let d=1;d<=days;d++){
 
-      let date = new Date(p.year, m, d);
+      let date=new Date(p.year,m,d);
 
-      if(date.getDay() === 5){ // viernes
+      if(date.getDay()===5){ // viernes
 
-        let key = `${m+1}-${d}`;
+        let key=`${m+1}-${d}`;
 
         if(p.data[key] !== undefined && !isNaN(p.data[key])){
-          last = p.data[key];
+          last = Number(p.data[key]);
         }
 
         labels.push(`${m+1}/${d}`);
@@ -286,38 +245,36 @@ function buildChart(){
     }
   }
 
-  let ctx = document.getElementById("chart").getContext("2d");
+  if(values.length === 0){
+    labels = ["Inicio"];
+    values = [last];
+  }
+
+  let ctx=document.getElementById("chart").getContext("2d");
 
   if(window.chart) window.chart.destroy();
 
-  window.chart = new Chart(ctx,{
+  window.chart=new Chart(ctx,{
     type:"line",
     data:{
-      labels: labels,
-      datasets:[
-        {
-          label:"Capital",
-          data: values,
-          borderColor:"#4da3ff",
-          tension:0.2,
-          fill:false
-        }
-      ]
+      labels:labels,
+      datasets:[{
+        label:"Capital",
+        data:values,
+        borderColor:"#4da3ff",
+        borderWidth:2,
+        tension:0.2
+      }]
     },
     options:{
       responsive:true,
       maintainAspectRatio:false,
       animation:false,
-      plugins:{
-        legend:{ labels:{ color:"white" } }
-      },
       scales:{
-        x:{ ticks:{ color:"white" } },
         y:{
-          min: p.start || 0,
-          max: p.target || 1000,
+          min:Number(p.start) || 0,
+          max:Number(p.target) || (last+100),
           ticks:{
-            color:"white",
             callback:value => value + " €"
           }
         }
@@ -329,57 +286,14 @@ function buildChart(){
 /* CONFIG */
 function settings(){
   let p=current();
-  let year=prompt("Año:",p.year);
   let start=prompt("Capital inicial:",p.start);
   let target=prompt("Objetivo:",p.target);
 
-  if(year) p.year=parseInt(year);
   if(start) p.start=parseFloat(start);
   if(target) p.target=parseFloat(target);
 
   save();
   render();
-}
-
-function newPortfolio(){
-  let name=prompt("Nombre cartera:");
-  if(!name) return;
-
-  state.portfolios[name]={
-    year:2026,
-    start:1000,
-    target:5000,
-    data:{}
-  };
-
-  state.active=name;
-  save();
-  render();
-}
-
-/* EXPORT / IMPORT */
-function exportData(){
-  let blob=new Blob([JSON.stringify(state)],{type:"application/json"});
-  let a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="trading_data.json";
-  a.click();
-}
-
-function importData(){
-  let input=document.createElement("input");
-  input.type="file";
-  input.onchange=e=>{
-    let file=e.target.files[0];
-    let reader=new FileReader();
-    reader.onload=()=>{
-      state=JSON.parse(reader.result);
-      save();
-      render();
-    };
-    reader.readAsText(file);
-  };
-  input.click();
 }
 
 /* RENDER */
