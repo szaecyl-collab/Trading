@@ -138,7 +138,6 @@ function buildTabs(){
 
     close.onclick=(e)=>{
       e.stopPropagation();
-
       if(confirm("Eliminar cartera?")){
         delete state.portfolios[name];
         state.active=Object.keys(state.portfolios)[0];
@@ -154,7 +153,6 @@ function buildTabs(){
   let add=document.createElement("div");
   add.className="tab";
   add.innerText="+";
-
   add.onclick=()=> newPortfolio();
 
   tabs.appendChild(add);
@@ -257,7 +255,7 @@ function buildCalendar(){
   });
 }
 
-/* GRAFICA (FIX DEFINITIVO) */
+/* GRAFICA (CORREGIDA) */
 function buildChart(){
   let p=current();
 
@@ -265,17 +263,17 @@ function buildChart(){
   let values=[];
   let last=p.start || 0;
 
-  for(let m=1;m<=12;m++){
-    let days=new Date(p.year,m,0).getDate();
+  for(let m=0;m<12;m++){
+    let days=new Date(p.year,m+1,0).getDate();
 
     for(let d=1;d<=days;d++){
-      let key=`${m}-${d}`;
+      let key=`${m+1}-${d}`;
 
       if(p.data[key] !== undefined && !isNaN(p.data[key])){
         last=p.data[key];
       }
 
-      labels.push(`${m}/${d}`);
+      labels.push(`${m+1}/${d}`);
       values.push(last);
     }
   }
