@@ -95,7 +95,7 @@ button { margin:5px; }
 <div class="year" id="calendar"></div>
 
 <div class="chart-box">
-<canvas id="chart" height="300"></canvas>
+<canvas id="chart"></canvas>
 </div>
 
 <script>
@@ -255,7 +255,7 @@ function buildCalendar(){
   });
 }
 
-/* GRAFICA (CORREGIDA) */
+/* GRAFICA (FIX REAL DEFINITIVO) */
 function buildChart(){
   let p=current();
 
@@ -278,12 +278,17 @@ function buildChart(){
     }
   }
 
-  let ctx = document.getElementById("chart");
-  ctx.height = 300;
+  let canvas = document.getElementById("chart");
+
+  // 🔥 FIX CLAVE
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 300;
+
+  let ctx = canvas.getContext("2d");
 
   if(window.chart) window.chart.destroy();
 
-  window.chart=new Chart(ctx,{
+  window.chart = new Chart(ctx,{
     type:"line",
     data:{
       labels:labels,
@@ -306,6 +311,7 @@ function buildChart(){
     options:{
       responsive:true,
       maintainAspectRatio:false,
+      animation:false,
       plugins:{legend:{labels:{color:"white"}}},
       scales:{
         x:{ticks:{color:"white"}},
@@ -376,11 +382,14 @@ function importData(){
   input.click();
 }
 
-/* RENDER */
+/* RENDER (FIX TIMING) */
 function render(){
   buildTabs();
   buildCalendar();
-  buildChart();
+
+  setTimeout(() => {
+    buildChart();
+  }, 50);
 }
 
 render();
