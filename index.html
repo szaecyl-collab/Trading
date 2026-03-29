@@ -2,23 +2,18 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Calendario Inversión</title>
+<title>Trading Calendar PRO</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { font-family: Arial; background:#f5f5f5; }
 
-.topbar {
-  display:flex;
-  justify-content:space-between;
-  margin:10px;
-}
+.topbar { margin:10px; }
 
 .year {
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:10px;
-  width:65%;
 }
 
 .month {
@@ -31,7 +26,6 @@ body { font-family: Arial; background:#f5f5f5; }
   background:#ddd;
   text-align:center;
   font-weight:bold;
-  padding:4px;
 }
 
 .grid {
@@ -50,44 +44,35 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .friday { background:#cfe2ff; cursor:pointer; }
 
-.capcol { background:#fff; font-size:10px; }
+.capcol { font-size:10px; }
 
-.wrapper {
-  display:flex;
-  gap:20px;
-}
-
+/* GRAFICA ABAJO */
 .chart-box {
-  width:35%;
+  margin-top:30px;
   background:#2c2c2c;
   padding:15px;
-  border-radius:10px;
 }
 
-button { padding:6px 10px; }
+button { margin:5px; }
 </style>
 </head>
 
 <body>
 
 <div class="topbar">
-  <div>
-    <button onclick="settings()">⚙️ Configuración</button>
-    <button onclick="newPortfolio()">➕ Cartera</button>
-  </div>
-  <div>
-    <button onclick="window.print()">🖨️ Imprimir</button>
-  </div>
+<button onclick="settings()">⚙️ Config</button>
+<button onclick="newPortfolio()">➕ Cartera</button>
+<button onclick="exportData()">📤 Exportar</button>
+<button onclick="importData()">📥 Importar</button>
+<button onclick="window.print()">🖨️ Imprimir</button>
 </div>
 
 <h2 id="title"></h2>
 
-<div class="wrapper">
-  <div class="year" id="calendar"></div>
+<div class="year" id="calendar"></div>
 
-  <div class="chart-box">
-    <canvas id="chart"></canvas>
-  </div>
+<div class="chart-box">
+<canvas id="chart"></canvas>
 </div>
 
 <script>
@@ -103,13 +88,8 @@ let state = JSON.parse(localStorage.getItem("vertexApp")) || {
   }
 };
 
-function current(){
-  return state.portfolios[state.active];
-}
-
-function save(){
-  localStorage.setItem("vertexApp", JSON.stringify(state));
-}
+function current(){ return state.portfolios[state.active]; }
+function save(){ localStorage.setItem("vertexApp", JSON.stringify(state)); }
 
 const months=["enero","febrero","marzo","abril","mayo","junio",
 "julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -154,7 +134,7 @@ function buildCalendar(){
     for(let i=0;i<arr.length;i+=7){
       let week=arr.slice(i,i+7);
 
-      week.forEach((d,idx)=>{
+      week.forEach(d=>{
         let cell=document.createElement("div");
         cell.className="cell";
 
@@ -207,19 +187,23 @@ function buildCalendar(){
   });
 }
 
+/* 🔥 GRAFICA CORREGIDA */
 function buildChart(){
   let p=current();
 
   let labels=[];
   let values=[];
-  let last=p.start;
+  let last=p.start || 0;
 
   for(let m=1;m<=12;m++){
     let days=new Date(p.year,m,0).getDate();
 
     for(let d=1;d<=days;d++){
       let key=`${m}-${d}`;
-      if(p.data[key]) last=p.data[key];
+
+      if(p.data[key] !== undefined){
+        last=p.data[key];
+      }
 
       labels.push(`${m}/${d}`);
       values.push(last);
@@ -238,16 +222,12 @@ function buildChart(){
           data:values,
           borderColor:"#4da3ff",
           fill:false
-        },
-        {
-          label:"Objetivo",
-          data:Array(values.length).fill(p.target),
-          borderDash:[5,5],
-          borderColor:"orange"
         }
       ]
     },
     options:{
+      responsive:true,
+      maintainAspectRatio:false,
       plugins:{legend:{labels:{color:"white"}}},
       scales:{
         x:{ticks:{color:"white"}},
@@ -257,12 +237,12 @@ function buildChart(){
   });
 }
 
+/* CONFIG */
 function settings(){
   let p=current();
-
   let year=prompt("Año:",p.year);
-  let start=prompt("Capital inicial (1 enero):",p.start);
-  let target=prompt("Objetivo (31 diciembre):",p.target);
+  let start=prompt("Capital inicial:",p.start);
+  let target=prompt("Objetivo:",p.target);
 
   if(year) p.year=parseInt(year);
   if(start) p.start=parseFloat(start);
@@ -286,6 +266,31 @@ function newPortfolio(){
   state.active=name;
   save();
   render();
+}
+
+/* EXPORT / IMPORT */
+function exportData(){
+  let blob=new Blob([JSON.stringify(state)],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="trading_data.json";
+  a.click();
+}
+
+function importData(){
+  let input=document.createElement("input");
+  input.type="file";
+  input.onchange=e=>{
+    let file=e.target.files[0];
+    let reader=new FileReader();
+    reader.onload=()=>{
+      state=JSON.parse(reader.result);
+      save();
+      render();
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 function render(){
