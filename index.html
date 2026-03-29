@@ -8,8 +8,31 @@
 <style>
 body { font-family: Arial; background:#f5f5f5; }
 
+/* TOP */
 .topbar { margin:10px; }
 
+/* TABS */
+#tabs { display:flex; gap:5px; margin:10px; }
+
+.tab {
+  padding:5px 10px;
+  background:#ddd;
+  cursor:pointer;
+  border:1px solid #999;
+}
+
+.active-tab {
+  background:#fff;
+  font-weight:bold;
+}
+
+.tab-close {
+  margin-left:5px;
+  color:red;
+  cursor:pointer;
+}
+
+/* CALENDARIO */
 .year {
   display:grid;
   grid-template-columns: repeat(3, 1fr);
@@ -46,11 +69,12 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .capcol { font-size:10px; }
 
-/* GRAFICA ABAJO */
+/* GRAFICA */
 .chart-box {
   margin-top:30px;
   background:#2c2c2c;
   padding:15px;
+  height:300px;
 }
 
 button { margin:5px; }
@@ -61,11 +85,12 @@ button { margin:5px; }
 
 <div class="topbar">
 <button onclick="settings()">⚙️ Config</button>
-<button onclick="newPortfolio()">➕ Cartera</button>
 <button onclick="exportData()">📤 Exportar</button>
 <button onclick="importData()">📥 Importar</button>
 <button onclick="window.print()">🖨️ Imprimir</button>
 </div>
+
+<div id="tabs"></div>
 
 <h2 id="title"></h2>
 
@@ -91,6 +116,55 @@ let state = JSON.parse(localStorage.getItem("vertexApp")) || {
 function current(){ return state.portfolios[state.active]; }
 function save(){ localStorage.setItem("vertexApp", JSON.stringify(state)); }
 
+/* TABS */
+function buildTabs(){
+  let tabs=document.getElementById("tabs");
+  tabs.innerHTML="";
+
+  Object.keys(state.portfolios).forEach(name=>{
+    let tab=document.createElement("div");
+    tab.className="tab";
+    if(name===state.active) tab.classList.add("active-tab");
+
+    tab.innerHTML=name;
+
+    tab.onclick=()=>{
+      state.active=name;
+      save();
+      render();
+    };
+
+    let close=document.createElement("span");
+    close.innerText=" ×";
+    close.className="tab-close";
+
+    close.onclick=(e)=>{
+      e.stopPropagation();
+
+      if(confirm("Eliminar cartera?")){
+        delete state.portfolios[name];
+        state.active=Object.keys(state.portfolios)[0];
+        save();
+        render();
+      }
+    };
+
+    tab.appendChild(close);
+    tabs.appendChild(tab);
+  });
+
+  let add=document.createElement("div");
+  add.className="tab";
+  add.innerText="+";
+
+  add.onclick=()=>{
+    newPortfolio();
+  };
+
+  tabs.appendChild(add);
+}
+
+/* CALENDARIO */
 const months=["enero","febrero","marzo","abril","mayo","junio",
 "julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
@@ -187,7 +261,7 @@ function buildCalendar(){
   });
 }
 
-/* 🔥 GRAFICA CORREGIDA */
+/* GRAFICA */
 function buildChart(){
   let p=current();
 
@@ -253,7 +327,7 @@ function settings(){
 }
 
 function newPortfolio(){
-  let name=prompt("Nombre:");
+  let name=prompt("Nombre cartera:");
   if(!name) return;
 
   state.portfolios[name]={
@@ -293,7 +367,9 @@ function importData(){
   input.click();
 }
 
+/* RENDER */
 function render(){
+  buildTabs();
   buildCalendar();
   buildChart();
 }
