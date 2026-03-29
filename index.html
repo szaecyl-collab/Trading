@@ -73,7 +73,6 @@ body { font-family: Arial; background:#f5f5f5; }
   margin-top:30px;
   background:#2c2c2c;
   padding:15px;
-  height:300px;
 }
 
 button { margin:5px; }
@@ -96,7 +95,7 @@ button { margin:5px; }
 <div class="year" id="calendar"></div>
 
 <div class="chart-box">
-<canvas id="chart" style="height:300px;"></canvas>
+<canvas id="chart" height="300"></canvas>
 </div>
 
 <script>
@@ -156,9 +155,7 @@ function buildTabs(){
   add.className="tab";
   add.innerText="+";
 
-  add.onclick=()=>{
-    newPortfolio();
-  };
+  add.onclick=()=> newPortfolio();
 
   tabs.appendChild(add);
 }
@@ -260,7 +257,7 @@ function buildCalendar(){
   });
 }
 
-/* GRAFICA */
+/* GRAFICA (FIX DEFINITIVO) */
 function buildChart(){
   let p=current();
 
@@ -283,9 +280,12 @@ function buildChart(){
     }
   }
 
+  let ctx = document.getElementById("chart");
+  ctx.height = 300;
+
   if(window.chart) window.chart.destroy();
 
-  window.chart=new Chart(document.getElementById("chart"),{
+  window.chart=new Chart(ctx,{
     type:"line",
     data:{
       labels:labels,
