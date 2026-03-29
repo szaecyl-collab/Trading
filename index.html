@@ -68,11 +68,12 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .capcol { font-size:10px; }
 
-/* GRAFICA */
+/* 🔥 FIX CLAVE: altura real para la gráfica */
 .chart-box {
   margin-top:30px;
   background:#2c2c2c;
   padding:15px;
+  height:350px;
 }
 
 button { margin:5px; }
@@ -95,7 +96,7 @@ button { margin:5px; }
 <div class="year" id="calendar"></div>
 
 <div class="chart-box">
-<canvas id="chart" height="300"></canvas>
+<canvas id="chart"></canvas>
 </div>
 
 <script>
@@ -221,7 +222,7 @@ function buildCalendar(){
 
             cell.onclick=()=>{
               let val=prompt("Capital:",p.data[key]||"");
-              if(val){
+              if(val!==null && val!==""){
                 p.data[key]=parseFloat(val);
                 save();
                 render();
@@ -255,7 +256,7 @@ function buildCalendar(){
   });
 }
 
-/* 🔥 GRAFICA NUEVA (SOLO VIERNES, ESCALA EXCEL) */
+/* 🔥 GRAFICA FUNCIONANDO */
 function buildChart(){
 
   let p = current();
@@ -272,7 +273,7 @@ function buildChart(){
 
       let date = new Date(p.year, m, d);
 
-      if(date.getDay() === 5){ // viernes
+      if(date.getDay() === 5){
 
         let key = `${m+1}-${d}`;
 
@@ -300,7 +301,9 @@ function buildChart(){
           data: values,
           borderColor:"#4da3ff",
           tension:0.2,
-          fill:false
+          fill:false,
+          pointRadius:4,
+          pointBackgroundColor:"#4da3ff"
         }
       ]
     },
