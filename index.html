@@ -2,116 +2,176 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Trading 2026</title>
+<title>Trading PRO</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: Arial; text-align: center; }
-.year { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.month { border: 1px solid #ccc; padding: 10px; }
-.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-.day { padding: 5px; border: 1px solid #eee; }
-.friday { background: #d0ebff; cursor: pointer; }
-.cap { font-size: 10px; color: blue; }
+.topbar { margin: 10px; }
+.calendar { display: grid; grid-template-columns: repeat(7,1fr); gap:3px; max-width:800px; margin:auto;}
+.day { border:1px solid #ccc; padding:8px; }
+.friday { background:#d0ebff; cursor:pointer; }
+.header { font-weight:bold; }
 </style>
 </head>
 <body>
 
-<h2>TRADING 2026</h2>
+<h2 id="title">Trading</h2>
 
-<div class="year" id="calendar"></div>
+<div class="topbar">
+<button onclick="openSettings()">⚙️ Configuración</button>
+<button onclick="addPortfolio()">➕ Nueva cartera</button>
+<button onclick="window.print()">🖨️ Imprimir</button>
+</div>
+
+<div id="calendar"></div>
 
 <h3>Equity</h3>
 <canvas id="chart"></canvas>
 
 <script>
-let data = JSON.parse(localStorage.getItem("capData")) || {};
+let state = JSON.parse(localStorage.getItem("appState")) || {
+    active: "default",
+    portfolios: {
+        "default": {
+            year: 2026,
+            start: 1000,
+            target: 5000,
+            data: {}
+        }
+    }
+};
 
-const months = [
-"enero","febrero","marzo","abril","mayo","junio",
-"julio","agosto","septiembre","octubre","noviembre","diciembre"
-];
+function getCurrent() {
+    return state.portfolios[state.active];
+}
+
+function save() {
+    localStorage.setItem("appState", JSON.stringify(state));
+}
 
 function generateCalendar() {
-    const calendar = document.getElementById("calendar");
+    let cal = document.getElementById("calendar");
+    cal.innerHTML = "";
 
-    months.forEach((month, m) => {
-        let div = document.createElement("div");
-        div.className = "month";
+    let p = getCurrent();
+    document.getElementById("title").innerText = state.active + " ("+p.year+")";
 
-        let title = document.createElement("h4");
-        title.innerText = month + " 2026";
-        div.appendChild(title);
+    let days = ["L","M","X","J","V","S","D"];
+    days.forEach(d=>{
+        let h=document.createElement("div");
+        h.className="header";
+        h.innerText=d;
+        cal.appendChild(h);
+    });
 
-        let grid = document.createElement("div");
-        grid.className = "grid";
+    let date = new Date(p.year,0,1);
+    let startDay = (date.getDay()+6)%7;
 
-        let daysInMonth = new Date(2026, m+1, 0).getDate();
+    for(let i=0;i<startDay;i++){
+        cal.appendChild(document.createElement("div"));
+    }
 
-        for (let d = 1; d <= daysInMonth; d++) {
-            let date = new Date(2026, m, d);
-            let day = document.createElement("div");
-            day.className = "day";
+    for(let m=0;m<12;m++){
+        let daysInMonth=new Date(p.year,m+1,0).getDate();
 
-            day.innerHTML = d;
+        for(let d=1;d<=daysInMonth;d++){
+            let dayDiv=document.createElement("div");
+            dayDiv.className="day";
 
-            // viernes
-            if (date.getDay() === 5) {
-                day.classList.add("friday");
+            let currentDate=new Date(p.year,m,d);
+            let key=`${m+1}-${d}`;
 
-                let key = `${m+1}-${d}`;
+            dayDiv.innerHTML=d;
 
-                if (data[key]) {
-                    day.innerHTML += `<div class="cap">${data[key]}€</div>`;
+            if(currentDate.getDay()===5){
+                dayDiv.classList.add("friday");
+
+                if(p.data[key]){
+                    dayDiv.innerHTML+=`<br>${p.data[key]}€`;
                 }
 
-                day.onclick = () => {
-                    let val = prompt("Capital (€):", data[key] || "");
-                    if (val !== null && val !== "") {
-                        data[key] = parseFloat(val);
-                        localStorage.setItem("capData", JSON.stringify(data));
-                        location.reload();
+                dayDiv.onclick=()=>{
+                    let val=prompt("Capital:",p.data[key]||"");
+                    if(val){
+                        p.data[key]=parseFloat(val);
+                        save();
+                        render();
                     }
                 };
             }
 
-            grid.appendChild(day);
+            cal.appendChild(dayDiv);
         }
+    }
+}
 
-        div.appendChild(grid);
-        calendar.appendChild(div);
+function buildChart(){
+    let p=getCurrent();
+    let labels=[];
+    let values=[];
+
+    let last=p.start;
+
+    for(let m=1;m<=12;m++){
+        for(let d=1;d<=31;d++){
+            let key=`${m}-${d}`;
+            if(p.data[key]) last=p.data[key];
+            labels.push(`${m}/${d}`);
+            values.push(last);
+        }
+    }
+
+    if(window.chart) window.chart.destroy();
+
+    window.chart=new Chart(document.getElementById("chart"),{
+        type:'line',
+        data:{
+            labels:labels,
+            datasets:[
+                {label:'Equity',data:values,fill:false},
+                {label:'Objetivo',data:Array(values.length).fill(p.target),borderDash:[5,5]}
+            ]
+        }
     });
 }
 
-function buildChart() {
-    let labels = [];
-    let values = [];
+function openSettings(){
+    let p=getCurrent();
 
-    let sortedKeys = Object.keys(data).sort((a,b)=>{
-        let [m1,d1]=a.split("-").map(Number);
-        let [m2,d2]=b.split("-").map(Number);
-        return new Date(2026,m1-1,d1)-new Date(2026,m2-1,d2);
-    });
+    let year=prompt("Año:",p.year);
+    let start=prompt("Capital inicial:",p.start);
+    let target=prompt("Objetivo:",p.target);
 
-    sortedKeys.forEach(k=>{
-        labels.push(k);
-        values.push(data[k]);
-    });
+    if(year) p.year=parseInt(year);
+    if(start) p.start=parseFloat(start);
+    if(target) p.target=parseFloat(target);
 
-    new Chart(document.getElementById("chart"), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Capital',
-                data: values,
-                fill: false
-            }]
-        }
-    });
+    save();
+    render();
 }
 
-generateCalendar();
-buildChart();
+function addPortfolio(){
+    let name=prompt("Nombre cartera:");
+    if(!name) return;
+
+    state.portfolios[name]={
+        year:2026,
+        start:1000,
+        target:5000,
+        data:{}
+    };
+
+    state.active=name;
+    save();
+    render();
+}
+
+function render(){
+    generateCalendar();
+    buildChart();
+}
+
+render();
 </script>
 
 </body>
