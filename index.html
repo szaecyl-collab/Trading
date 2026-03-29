@@ -10,6 +10,7 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .topbar { margin:10px; }
 
+/* TABS */
 #tabs { display:flex; gap:5px; margin:10px; }
 
 .tab {
@@ -22,6 +23,19 @@ body { font-family: Arial; background:#f5f5f5; }
 .active-tab {
   background:#fff;
   font-weight:bold;
+}
+
+.tab-close {
+  margin-left:5px;
+  color:red;
+  cursor:pointer;
+}
+
+/* CALENDARIO */
+.year {
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:10px;
 }
 
 .month {
@@ -52,16 +66,16 @@ body { font-family: Arial; background:#f5f5f5; }
 
 .friday { background:#cfe2ff; cursor:pointer; }
 
+.capcol { font-size:10px; }
+
+/* GRAFICA */
 .chart-box {
   margin-top:30px;
   background:#2c2c2c;
   padding:15px;
 }
 
-canvas {
-  width:100% !important;
-  height:300px !important;
-}
+button { margin:5px; }
 </style>
 </head>
 
@@ -69,6 +83,8 @@ canvas {
 
 <div class="topbar">
 <button onclick="settings()">⚙️ Config</button>
+<button onclick="exportData()">📤 Exportar</button>
+<button onclick="importData()">📥 Importar</button>
 <button onclick="window.print()">🖨️ Imprimir</button>
 </div>
 
@@ -76,10 +92,10 @@ canvas {
 
 <h2 id="title"></h2>
 
-<div id="calendar"></div>
+<div class="year" id="calendar"></div>
 
 <div class="chart-box">
-<canvas id="chart"></canvas>
+<canvas id="chart" height="300"></canvas>
 </div>
 
 <script>
@@ -108,7 +124,7 @@ function buildTabs(){
     tab.className="tab";
     if(name===state.active) tab.classList.add("active-tab");
 
-    tab.innerText=name;
+    tab.innerHTML=name;
 
     tab.onclick=()=>{
       state.active=name;
@@ -116,47 +132,157 @@ function buildTabs(){
       render();
     };
 
+    let close=document.createElement("span");
+    close.innerText=" ×";
+    close.className="tab-close";
+
+    close.onclick=(e)=>{
+      e.stopPropagation();
+      if(confirm("Eliminar cartera?")){
+        delete state.portfolios[name];
+        state.active=Object.keys(state.portfolios)[0];
+        save();
+        render();
+      }
+    };
+
+    tab.appendChild(close);
     tabs.appendChild(tab);
   });
+
+  let add=document.createElement("div");
+  add.className="tab";
+  add.innerText="+";
+  add.onclick=()=> newPortfolio();
+
+  tabs.appendChild(add);
 }
 
-/* CALENDARIO SIMPLE */
+/* CALENDARIO */
+const months=["enero","febrero","marzo","abril","mayo","junio",
+"julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+const days=["L","M","X","J","V","S","D","CAP"];
+
 function buildCalendar(){
   let cal=document.getElementById("calendar");
   cal.innerHTML="";
 
   let p=current();
-  document.getElementById("title").innerText=p.year;
+  document.getElementById("title").innerText=state.active+" - "+p.year;
 
-  for(let m=0;m<12;m++){
-    let div=document.createElement("div");
-    div.innerHTML="<b>Mes "+(m+1)+"</b>";
-    cal.appendChild(div);
-  }
-}
+  months.forEach((month,m)=>{
 
-/* 🔥 NUEVA GRAFICA LIMPIA */
-function buildChart(){
+    let box=document.createElement("div");
+    box.className="month";
 
-  let p=current();
+    let title=document.createElement("div");
+    title.className="month-title";
+    title.innerText=month+" "+p.year;
+    box.appendChild(title);
 
-  let labels=[];
-  let values=[];
-  let last=p.start || 0;
+    let grid=document.createElement("div");
+    grid.className="grid";
 
-  for(let m=1;m<=12;m++){
-    let days=new Date(p.year,m,0).getDate();
+    days.forEach(d=>{
+      let c=document.createElement("div");
+      c.className="cell header";
+      c.innerText=d;
+      grid.appendChild(c);
+    });
 
-    for(let d=1;d<=days;d++){
+    let first=(new Date(p.year,m,1).getDay()+6)%7;
+    let daysInMonth=new Date(p.year,m+1,0).getDate();
 
-      let key=`${m}-${d}`;
+    let arr=[];
+    for(let i=0;i<first;i++) arr.push("");
+    for(let d=1;d<=daysInMonth;d++) arr.push(d);
+    while(arr.length%7!==0) arr.push("");
 
-      if(p.data[key]){
-        last = p.data[key];
+    for(let i=0;i<arr.length;i+=7){
+      let week=arr.slice(i,i+7);
+
+      week.forEach(d=>{
+        let cell=document.createElement("div");
+        cell.className="cell";
+
+        if(d){
+          cell.innerText=d;
+          let date=new Date(p.year,m,d);
+
+          if(date.getDay()===5){
+            cell.classList.add("friday");
+
+            let key=`${m+1}-${d}`;
+
+            if(p.data[key]){
+              cell.innerHTML=d+"<br>"+p.data[key];
+            }
+
+            cell.onclick=()=>{
+              let val=prompt("Capital:",p.data[key]||"");
+              if(val){
+                p.data[key]=parseFloat(val);
+                save();
+                render();
+              }
+            };
+          }
+        }
+
+        grid.appendChild(cell);
+      });
+
+      let cap=document.createElement("div");
+      cap.className="cell capcol";
+
+      let friday=week.find(d=>{
+        if(!d) return false;
+        let dt=new Date(p.year,m,d);
+        return dt.getDay()===5;
+      });
+
+      if(friday){
+        let key=`${m+1}-${friday}`;
+        if(p.data[key]) cap.innerText=p.data[key];
       }
 
-      labels.push(m+"/"+d);
-      values.push(last);
+      grid.appendChild(cap);
+    }
+
+    box.appendChild(grid);
+    cal.appendChild(box);
+  });
+}
+
+/* 🔥 GRAFICA NUEVA (SOLO VIERNES, ESCALA EXCEL) */
+function buildChart(){
+
+  let p = current();
+
+  let labels = [];
+  let values = [];
+
+  let last = p.start || 0;
+
+  for(let m=0;m<12;m++){
+    let days = new Date(p.year, m+1, 0).getDate();
+
+    for(let d=1; d<=days; d++){
+
+      let date = new Date(p.year, m, d);
+
+      if(date.getDay() === 5){ // viernes
+
+        let key = `${m+1}-${d}`;
+
+        if(p.data[key] !== undefined && !isNaN(p.data[key])){
+          last = p.data[key];
+        }
+
+        labels.push(`${m+1}/${d}`);
+        values.push(last);
+      }
     }
   }
 
@@ -167,30 +293,93 @@ function buildChart(){
   window.chart = new Chart(ctx,{
     type:"line",
     data:{
-      labels:labels,
-      datasets:[{
-        label:"Equity",
-        data:values,
-        borderColor:"#4da3ff",
-        tension:0.1
-      }]
+      labels: labels,
+      datasets:[
+        {
+          label:"Capital",
+          data: values,
+          borderColor:"#4da3ff",
+          tension:0.2,
+          fill:false
+        }
+      ]
     },
     options:{
       responsive:true,
-      maintainAspectRatio:false
+      maintainAspectRatio:false,
+      animation:false,
+      plugins:{
+        legend:{ labels:{ color:"white" } }
+      },
+      scales:{
+        x:{ ticks:{ color:"white" } },
+        y:{
+          min: p.start || 0,
+          max: p.target || 1000,
+          ticks:{
+            color:"white",
+            callback:value => value + " €"
+          }
+        }
+      }
     }
   });
-
 }
 
 /* CONFIG */
 function settings(){
   let p=current();
+  let year=prompt("Año:",p.year);
   let start=prompt("Capital inicial:",p.start);
+  let target=prompt("Objetivo:",p.target);
+
+  if(year) p.year=parseInt(year);
   if(start) p.start=parseFloat(start);
+  if(target) p.target=parseFloat(target);
 
   save();
   render();
+}
+
+function newPortfolio(){
+  let name=prompt("Nombre cartera:");
+  if(!name) return;
+
+  state.portfolios[name]={
+    year:2026,
+    start:1000,
+    target:5000,
+    data:{}
+  };
+
+  state.active=name;
+  save();
+  render();
+}
+
+/* EXPORT / IMPORT */
+function exportData(){
+  let blob=new Blob([JSON.stringify(state)],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="trading_data.json";
+  a.click();
+}
+
+function importData(){
+  let input=document.createElement("input");
+  input.type="file";
+  input.onchange=e=>{
+    let file=e.target.files[0];
+    let reader=new FileReader();
+    reader.onload=()=>{
+      state=JSON.parse(reader.result);
+      save();
+      render();
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 /* RENDER */
