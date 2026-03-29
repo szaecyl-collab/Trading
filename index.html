@@ -2,102 +2,116 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Trading Calendar</title>
+<title>Trading 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: Arial; text-align: center; }
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-  max-width: 700px;
-  margin: auto;
-}
-.day {
-  border: 1px solid #ccc;
-  padding: 10px;
-  cursor: pointer;
-}
-.filled { background: #c8e6ff; }
+.year { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.month { border: 1px solid #ccc; padding: 10px; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.day { padding: 5px; border: 1px solid #eee; }
+.friday { background: #d0ebff; cursor: pointer; }
+.cap { font-size: 10px; color: blue; }
 </style>
 </head>
 <body>
 
-<h2>Calendario Trading</h2>
+<h2>TRADING 2026</h2>
 
-<div class="calendar" id="calendar"></div>
+<div class="year" id="calendar"></div>
 
-<h3>Gráfica de Equity</h3>
-<canvas id="chart" height="100"></canvas>
+<h3>Equity</h3>
+<canvas id="chart"></canvas>
 
 <script>
-let data = JSON.parse(localStorage.getItem("calendarData")) || {};
+let data = JSON.parse(localStorage.getItem("capData")) || {};
 
-const calendar = document.getElementById("calendar");
+const months = [
+"enero","febrero","marzo","abril","mayo","junio",
+"julio","agosto","septiembre","octubre","noviembre","diciembre"
+];
 
-// Crear calendario simple (1–31)
-for (let i = 1; i <= 31; i++) {
-    let div = document.createElement("div");
-    div.className = "day";
-    div.innerHTML = "<b>" + i + "</b>";
+function generateCalendar() {
+    const calendar = document.getElementById("calendar");
 
-    if (data[i]) {
-        div.innerHTML += "<br>" + data[i] + "€";
-        div.classList.add("filled");
-    }
+    months.forEach((month, m) => {
+        let div = document.createElement("div");
+        div.className = "month";
 
-    div.onclick = () => {
-        let value = prompt("Nivel de cuenta (€):", data[i] || "");
-        if (value !== null && value !== "") {
-            data[i] = parseFloat(value);
-            localStorage.setItem("calendarData", JSON.stringify(data));
-            location.reload();
+        let title = document.createElement("h4");
+        title.innerText = month + " 2026";
+        div.appendChild(title);
+
+        let grid = document.createElement("div");
+        grid.className = "grid";
+
+        let daysInMonth = new Date(2026, m+1, 0).getDate();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            let date = new Date(2026, m, d);
+            let day = document.createElement("div");
+            day.className = "day";
+
+            day.innerHTML = d;
+
+            // viernes
+            if (date.getDay() === 5) {
+                day.classList.add("friday");
+
+                let key = `${m+1}-${d}`;
+
+                if (data[key]) {
+                    day.innerHTML += `<div class="cap">${data[key]}€</div>`;
+                }
+
+                day.onclick = () => {
+                    let val = prompt("Capital (€):", data[key] || "");
+                    if (val !== null && val !== "") {
+                        data[key] = parseFloat(val);
+                        localStorage.setItem("capData", JSON.stringify(data));
+                        location.reload();
+                    }
+                };
+            }
+
+            grid.appendChild(day);
         }
-    };
 
-    calendar.appendChild(div);
+        div.appendChild(grid);
+        calendar.appendChild(div);
+    });
 }
 
-// 📈 GRÁFICA CONTINUA (CLAVE)
-function buildChartData() {
+function buildChart() {
     let labels = [];
     let values = [];
 
-    let lastValue = null;
+    let sortedKeys = Object.keys(data).sort((a,b)=>{
+        let [m1,d1]=a.split("-").map(Number);
+        let [m2,d2]=b.split("-").map(Number);
+        return new Date(2026,m1-1,d1)-new Date(2026,m2-1,d2);
+    });
 
-    for (let i = 1; i <= 31; i++) {
-        labels.push(i);
+    sortedKeys.forEach(k=>{
+        labels.push(k);
+        values.push(data[k]);
+    });
 
-        if (data[i]) {
-            lastValue = data[i];
-        }
-
-        values.push(lastValue);
-    }
-
-    return { labels, values };
-}
-
-function drawChart() {
-    let ctx = document.getElementById("chart").getContext("2d");
-
-    let chartData = buildChartData();
-
-    new Chart(ctx, {
+    new Chart(document.getElementById("chart"), {
         type: 'line',
         data: {
-            labels: chartData.labels,
+            labels: labels,
             datasets: [{
-                label: 'Equity',
-                data: chartData.values,
-                fill: false,
-                spanGaps: true
+                label: 'Capital',
+                data: values,
+                fill: false
             }]
         }
     });
 }
 
-drawChart();
+generateCalendar();
+buildChart();
 </script>
 
 </body>
